@@ -1,0 +1,65 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            // "name": "Python: Current File",
+            // "type": "python",
+            // "request": "launch",
+            // "program": "${file}",
+            // "console": "integratedTerminal",
+            // "justMyCode": true
+
+            // "type": "python",
+            // "request": "launch",
+            // "name": "Python: file",
+            // "program": "/home/wugaoqiang/work/depth/SurroundDepth/run.py",
+            // "justMyCode": true,
+            // "module": "torch.distributed.launch",
+            // "args": [
+            //     "--nproc_per_node",
+            //     "1",
+            //     "run.py",
+            //     "--model_name",
+            //     "test",
+            //     "--config",
+            //     "configs/nusc_scale.txt",
+            //     "--models_to_load",
+            //     "depth",
+            //     "encoder",
+            //     "--load_weights_folder=../nusc_scale",
+            //     "--eval_only"
+            // ],
+            // "cwd": "${workspaceFolder}"
+
+            "name": "Distributed Training",
+            "type": "python",
+            "request": "launch",
+            "module": "torch.distributed.launch",
+            "args": [
+                "--nproc_per_node",
+                "1",
+                "${workspaceFolder}/run.py",
+                "--model_name",
+                "test",
+                "--config",
+                "configs/nusc_scale.txt",
+                "--models_to_load",
+                "depth",
+                "encoder",
+                "--load_weights_folder=../nusc_scale",
+                "--eval_only"
+            ],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "0",  // 指定 GPU 设备号
+                "MASTER_ADDR": "localhost",   // 指定 master 地址
+                "MASTER_PORT": "29500",       // 指定 master 端口号
+                "WORLD_SIZE": "1",            // 总进程数
+                "RANK": "0"                   // 当前进程的排名
+            }
+        }
+    ]
+}
