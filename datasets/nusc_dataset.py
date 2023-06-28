@@ -45,7 +45,7 @@ class NuscDataset(MonoDataset):
         self.camera_ids = ['front', 'front_left', 'back_left', 'back', 'back_right', 'front_right']
         self.camera_names = ['CAM_FRONT', 'CAM_FRONT_LEFT', 'CAM_BACK_LEFT', 'CAM_BACK', 'CAM_BACK_RIGHT', 'CAM_FRONT_RIGHT']
 
-    
+
     def get_info(self, inputs, index_temporal, do_flip):
         inputs[("color", 0, -1)] = []
         if self.is_train:
@@ -57,11 +57,11 @@ class NuscDataset(MonoDataset):
                 inputs[("pose_spatial", i)] = []
 
             for idx, i in enumerate(self.frame_idxs):
-                inputs[('K_ori', i)] = [] 
-            
+                inputs[('K_ori', i)] = []
+
             inputs["pose_spatial"] = []
         else:
-            inputs[('K_ori', 0)] = [] 
+            inputs[('K_ori', 0)] = []
             inputs['depth'] = []
 
 
@@ -76,11 +76,11 @@ class NuscDataset(MonoDataset):
             color = self.loader(os.path.join(self.data_path, cam_sample['filename']))
             inputs['width_ori'].append(color.size[0])
             inputs['height_ori'].append(color.size[1])
-            
+
             if not self.is_train:
                 depth = np.load(os.path.join(self.depth_path, cam_sample['filename'][:-4] + '.npy'))
                 inputs['depth'].append(depth.astype(np.float32))
-            
+
             if do_flip:
                 color = color.transpose(pil.FLIP_LEFT_RIGHT)
             inputs[("color", 0, -1)].append(color)
@@ -91,9 +91,9 @@ class NuscDataset(MonoDataset):
             if self.is_train:
                 pose_0_spatial = Quaternion(ego_spatial['rotation']).transformation_matrix
                 pose_0_spatial[:3, 3] = np.array(ego_spatial['translation'])
-            
+
                 inputs["pose_spatial"].append(pose_0_spatial.astype(np.float32))
-    
+
             K = np.eye(4).astype(np.float32)
             K[:3, :3] = ego_spatial['camera_intrinsic']
             inputs[('K_ori', 0)].append(K)
@@ -120,16 +120,16 @@ class NuscDataset(MonoDataset):
                     inputs[('K_ori', i)].append(K)
 
                     color = self.loader(os.path.join(self.data_path, cam_sample_i['filename']))
-                    
+
                     if do_flip:
                         color = color.transpose(pil.FLIP_LEFT_RIGHT)
-        
+
                     inputs[("color", i, -1)].append(color)
 
                     pose_i_spatial = Quaternion(ego_spatial_i['rotation']).transformation_matrix
                     pose_i_spatial[:3, 3] = np.array(ego_spatial_i['translation'])
 
-    
+
         if self.is_train:
             for index_spatial in range(6):
                 for idx, i in enumerate(self.frame_idxs[1:]):
@@ -140,18 +140,18 @@ class NuscDataset(MonoDataset):
                     inputs[("pose_spatial", i)].append(gt_pose_spatial.astype(np.float32))
 
             for idx, i in enumerate(self.frame_idxs):
-                inputs[('K_ori', i)] = np.stack(inputs[('K_ori', i)], axis=0) 
+                inputs[('K_ori', i)] = np.stack(inputs[('K_ori', i)], axis=0)
                 if i != 0:
                     inputs[("pose_spatial", i)] = np.stack(inputs[("pose_spatial", i)], axis=0)
 
 
-            inputs['pose_spatial'] = np.stack(inputs['pose_spatial'], axis=0)   
+            inputs['pose_spatial'] = np.stack(inputs['pose_spatial'], axis=0)
         else:
-            inputs[('K_ori', 0)] = np.stack(inputs[('K_ori', 0)], axis=0) 
-            inputs['depth'] = np.stack(inputs['depth'], axis=0)   
+            inputs[('K_ori', 0)] = np.stack(inputs[('K_ori', 0)], axis=0)
+            inputs['depth'] = np.stack(inputs['depth'], axis=0)
 
         for key in ['width_ori', 'height_ori']:
-            inputs[key] = np.stack(inputs[key], axis=0)   
+            inputs[key] = np.stack(inputs[key], axis=0)
 
 
 

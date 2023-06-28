@@ -49,8 +49,8 @@
                 "--models_to_load",
                 "depth",
                 "encoder",
-                "--load_weights_folder=../nusc_scale",
-                "--eval_only"
+                "--load_weights_folder=../nusc_scale"
+                ,"--eval_only"
             ],
             "cwd": "${workspaceFolder}",
             "env": {

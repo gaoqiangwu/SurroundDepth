@@ -31,6 +31,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 import cv2
 from torch.utils.data import DistributedSampler as _DistributedSampler
 import pickle
+from PIL import Image
 
 
 def get_dist_info(return_gpu_per_machine=False):
@@ -69,7 +70,7 @@ class DistributedSampler(_DistributedSampler):
             indices = torch.arange(len(self.dataset)).tolist()
 
         indices = indices[self.rank:self.total_size:self.num_replicas]
-    
+
         return iter(indices)
 
 class Runer:
@@ -156,7 +157,7 @@ class Runer:
             self.models["predictive_mask"] = (self.models["predictive_mask"]).to(self.device)
             self.parameters_to_train += list(self.models["predictive_mask"].parameters())
 
-        
+
 
         if self.opt.load_weights_folder is not None:
             self.load_model()
@@ -178,17 +179,17 @@ class Runer:
 
         self.opt.batch_size = self.opt.batch_size // 6
 
-        train_dataset = self.dataset(self.opt,
-            self.opt.height, self.opt.width,
-            self.opt.frame_ids, 4, is_train=True)
+        # train_dataset = self.dataset(self.opt,
+        #     self.opt.height, self.opt.width,
+        #     self.opt.frame_ids, 4, is_train=True)
 
-        train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset, shuffle=True)
-        self.train_loader = DataLoader(
-            train_dataset, self.opt.batch_size, collate_fn=self.my_collate,
-            num_workers=self.opt.num_workers, pin_memory=True, drop_last=True, sampler=train_sampler)
-        
-        self.num_total_steps = len(self.train_loader) * self.opt.num_epochs
-        
+        # train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset, shuffle=True)
+        # self.train_loader = DataLoader(
+        #     train_dataset, self.opt.batch_size, collate_fn=self.my_collate,
+        #     num_workers=self.opt.num_workers, pin_memory=True, drop_last=True, sampler=train_sampler)
+
+        # self.num_total_steps = len(self.train_loader) * self.opt.num_epochs
+
         val_dataset = self.dataset(self.opt,
                 self.opt.height, self.opt.width,
                 self.opt.frame_ids, 4, is_train=False)
@@ -198,7 +199,7 @@ class Runer:
         self.val_loader = DataLoader(
             val_dataset, self.opt.batch_size, collate_fn=self.my_collate,
             num_workers=4, pin_memory=True, drop_last=False, sampler=val_sampler)
-        
+
         self.val_iter = iter(self.val_loader)
         self.num_val = len(val_dataset)
 
@@ -211,7 +212,7 @@ class Runer:
 
         self.backproject_depth = {}
         self.project_3d = {}
-        for scale in self.opt.scales:
+        for scale in self.opt.scales:  # TODO(scale ?)
             h = self.opt.height // (2 ** scale)
             w = self.opt.width // (2 ** scale)
 
@@ -224,9 +225,9 @@ class Runer:
         self.depth_metric_names = [
             "de/abs_rel", "de/sq_rel", "de/rms", "de/log_rms", "da/a1", "da/a2", "da/a3"]
 
-        if self.local_rank == 0:
-            self.log_print("There are {:d} training items and {:d} validation items\n".format(
-                len(train_dataset), len(val_dataset)))
+        # if self.local_rank == 0:
+        #     self.log_print("There are {:d} training items and {:d} validation items\n".format(
+        #         len(train_dataset), len(val_dataset)))
 
         self.save_opts()
 
@@ -235,7 +236,7 @@ class Runer:
         keys_list = list(batch[0].keys())
         special_key_list = ['id', 'match_spatial']
 
-        for key in keys_list: 
+        for key in keys_list:
             if key not in special_key_list:
                 batch_new[key] = [item[key] for item in batch]
                 batch_new[key] = torch.cat(batch_new[key], axis=0)
@@ -246,7 +247,7 @@ class Runer:
                         batch_new[key].append(value)
 
         return batch_new
-    
+
     def set_train(self):
         """Convert all models to training mode
         """
@@ -262,23 +263,23 @@ class Runer:
     def train(self):
         """Run the entire training pipeline
         """
-        
+
         self.step = 1
-        
+
         if self.opt.eval_only:
             self.val()
             if self.local_rank == 0:
                self.evaluation()
             exit()
-    
+
         self.epoch = 0
         self.start_time = time.time()
         for self.epoch in range(self.opt.num_epochs):
             self.train_loader.sampler.set_epoch(self.epoch)
             self.run_epoch()
 
-            
-            
+
+
     def evaluation(self):
         self.log_print("-> Evaluating {}".format(self.step))
 
@@ -286,7 +287,7 @@ class Runer:
         eval_types = ['scale-ambiguous', 'scale-aware']
         for eval_type in eval_types:
             errors[eval_type] = {}
-        
+
         for i in range(self.world_size):
             while not os.path.exists(os.path.join(self.log_path, 'eval', '{}.pkl'.format(i))):
                 time.sleep(1)
@@ -300,15 +301,15 @@ class Runer:
 
                         errors[eval_type][camera_id].append(errors_i[eval_type][camera_id])
 
-        
+
         num_sum = 0
         for eval_type in eval_types:
             for camera_id in errors[eval_type].keys():
                 errors[eval_type][camera_id] = np.concatenate(errors[eval_type][camera_id], axis=0)
-            
+
                 if eval_type == 'scale-aware':
                     num_sum += errors[eval_type][camera_id].shape[0]
-    
+
                 errors[eval_type][camera_id] = errors[eval_type][camera_id].mean(0)
 
         assert num_sum == self.num_val
@@ -327,14 +328,14 @@ class Runer:
                 self.log_print(camera_id)
                 self.log_print(("{:>8} | " * 7).format("abs_rel", "sq_rel", "rmse", "rmse_log", "a1", "a2", "a3"))
                 self.log_print(("&{: 8.3f}  " * 7).format(*mean_errors.tolist()) + "\\\\")
-                
+
 
 
     def val(self):
         """Validate the model on a single minibatch
         """
         self.set_eval()
-        
+
         errors = {}
         eval_types = ['scale-ambiguous', 'scale-aware']
         for eval_type in eval_types:
@@ -348,14 +349,18 @@ class Runer:
             for idx, data in enumerate(loader):
                 input_color = data[("color", 0, 0)].cuda()
                 gt_depths = data["depth"].cpu().numpy()
-                
+
+                if 1:  # just for debug
+                    # 将张量转换为numpy数组
+                    tensor_array = data[("color", 0, 0)].cpu().numpy()
+                    for i in range(tensor_array.shape[0]):
+                        image_slice = tensor_array[i]
+                        image = Image.fromarray(image_slice.transpose(1, 2, 0).astype('uint8'))
+                        image.show()
+
                 camera_ids = data["id"]
-                
-                
                 features = self.models["encoder"](input_color)
                 output = self.models["depth"](features)
-                
-
                 pred_disps_tensor, pred_depths = disp_to_depth(output[("disp", 0)], self.opt.min_depth, self.opt.max_depth)
 
                 input_color_flip = torch.flip(input_color, [3])
@@ -374,37 +379,37 @@ class Runer:
 
                     gt_depth = gt_depths[i]
                     gt_height, gt_width = gt_depth.shape[:2]
-    
+
                     pred_disp = pred_disps[i]
-                    pred_depth = 1 / pred_disp                   
+                    pred_depth = 1 / pred_disp
                     pred_depth = cv2.resize(pred_depth, (gt_width, gt_height))
 
                     if self.opt.focal:
                         pred_depth = pred_depth * data[("K", 0, 0)][i, 0, 0].item() / self.opt.focal_scale
 
                     mask = np.logical_and(gt_depth > self.opt.min_depth, gt_depth < self.opt.max_depth)
-                    
-     
+
+
                     pred_depth = pred_depth[mask]
                     gt_depth = gt_depth[mask]
-                    
-                    
+
+
                     ratio_median = np.median(gt_depth) / np.median(pred_depth)
                     ratios_median.append(ratio_median)
                     pred_depth_median = pred_depth.copy()*ratio_median
-        
+
                     pred_depth_median[pred_depth_median < self.opt.min_depth] = self.opt.min_depth
                     pred_depth_median[pred_depth_median > self.opt.max_depth] = self.opt.max_depth
-        
+
                     errors['scale-ambiguous'][camera_id].append(compute_errors(gt_depth, pred_depth_median))
-                    
-                    
-                    
+
+
+
                     pred_depth[pred_depth < self.opt.min_depth] = self.opt.min_depth
                     pred_depth[pred_depth > self.opt.max_depth] = self.opt.max_depth
-        
+
                     errors['scale-aware'][camera_id].append(compute_errors(gt_depth, pred_depth))
-    
+
         for eval_type in eval_types:
             for camera_id in errors[eval_type].keys():
                 errors[eval_type][camera_id] = np.array(errors[eval_type][camera_id])
@@ -412,10 +417,10 @@ class Runer:
 
         with open(os.path.join(self.log_path, 'eval', '{}.pkl'.format(self.local_rank)), 'wb') as f:
             pickle.dump(errors, f)
-        
+
         if self.local_rank == 0:
             self.log_print('median: {}'.format(np.array(ratios_median).mean()))
-        
+
         self.set_train()
 
 
@@ -449,14 +454,14 @@ class Runer:
 
                 if "depth_gt" in inputs:
                     self.compute_depth_losses(inputs, outputs, losses)
-            
-            
+
+
             if self.step % self.opt.eval_frequency == 0  and self.opt.eval_frequency > 0:
                 self.save_model()
                 self.val()
                 if self.local_rank == 0:
                     self.evaluation()
-            
+
             self.step += 1
 
         self.model_lr_scheduler.step()
@@ -469,9 +474,9 @@ class Runer:
 
     def to_device(self, inputs):
         special_key_list = ['id']
-        
+
         match_key_list = ['match_spatial']
-        
+
         for key, ipt in inputs.items():
             if key in special_key_list:
                 inputs[key] = ipt
@@ -479,7 +484,7 @@ class Runer:
                 for i in range(len(inputs[key])):
                     inputs[key][i] = inputs[key][i].to(self.device)
             else:
-                inputs[key] = ipt.to(self.device) 
+                inputs[key] = ipt.to(self.device)
 
     def process_batch(self, inputs):
         """Pass a minibatch through the network and generate images and losses
@@ -518,7 +523,7 @@ class Runer:
         """Predict poses between input frames for monocular sequences.
         """
         outputs = {}
-        
+
         if self.num_pose_frames == 2:
             # In this setting, we compute the pose to each source frame via a
             # separate forward pass through the pose network.
@@ -596,7 +601,7 @@ class Runer:
                 source_scale = 0
 
             _, depth = disp_to_depth(disp, self.opt.min_depth, self.opt.max_depth)
-            
+
             if self.opt.focal:
                 depth = depth * inputs[("K", 0, 0)][:, 0, 0][:, None, None, None] / self.opt.focal_scale
 
@@ -609,7 +614,7 @@ class Runer:
                 else:
                     T = outputs[("cam_T_cam", 0, frame_id)]
 
-                
+
                 # from the authors of https://arxiv.org/abs/1712.00175
                 if self.opt.pose_model_type == "posecnn":
 
@@ -621,7 +626,7 @@ class Runer:
 
                     T = transformation_from_parameters(
                         axisangle[:, 0], translation[:, 0] * mean_inv_depth[:, 0], frame_id < 0)
-                
+
 
                 cam_points = self.backproject_depth[source_scale](
                     depth, inputs[("inv_K", 0, source_scale)])
@@ -634,15 +639,15 @@ class Runer:
                     inputs[("color", frame_id, source_scale)],
                     outputs[("sample", frame_id, scale)],
                     padding_mode="border", align_corners=True)
-                
+
 
                 if not self.opt.disable_automasking:
                     outputs[("color_identity", frame_id, scale)] = \
                         inputs[("color", frame_id, source_scale)]
 
-                if self.opt.spatial:        
+                if self.opt.spatial:
                     T = inputs[('pose_spatial', frame_id)]
-        
+
                     cam_points = self.backproject_depth[source_scale](
                         outputs[("depth", 0, scale)], inputs[("inv_K", 0, source_scale)])
 
@@ -655,9 +660,9 @@ class Runer:
                         K_temp = K_temp.reshape(-1, 4, 4)
                     pix_coords = self.project_3d[source_scale](
                         cam_points, K_temp, T)
-        
+
                     outputs[("sample_spatial", frame_id, scale)] = pix_coords
-        
+
                     B, C, H, W = inputs[("color", 0, source_scale)].shape
                     inputs_temp = inputs[("color", 0, source_scale)].reshape(-1, 6, C, H, W)
                     if self.opt.use_fix_mask:
@@ -674,7 +679,7 @@ class Runer:
                         if self.opt.use_fix_mask:
                             inputs_mask = inputs_mask[:, [5, 0, 1, 2, 3, 4]]
                             inputs_mask = inputs_mask.reshape(B, 2, H, W)
-                        
+
                     outputs[("color_spatial", frame_id, scale)] = F.grid_sample(
                         inputs_temp,
                         outputs[("sample_spatial", frame_id, scale)],
@@ -691,7 +696,7 @@ class Runer:
                             outputs[("sample_spatial", frame_id, scale)],
                             padding_mode="zeros", align_corners=True, mode='nearest').detach()
 
-                        
+
             if self.opt.use_sfm_spatial:
                 outputs[("depth_match_spatial", scale)] = []
                 inputs[("depth_match_spatial", scale)] = []
@@ -701,23 +706,23 @@ class Runer:
                     pix_norm[..., 0] /= self.opt.width_ori
                     pix_norm[..., 1] /= self.opt.height_ori
                     pix_norm = (pix_norm - 0.5)*2
-    
+
                     depth_billi = F.grid_sample(outputs[("depth", 0, scale)][j].unsqueeze(0), pix_norm.unsqueeze(1).unsqueeze(0),padding_mode="border")
                     depth_billi = depth_billi.squeeze()
-    
+
                     compute_depth = inputs['match_spatial'][j][:, 2]
                     compute_angle = inputs['match_spatial'][j][:, 3]
                     distances1 = inputs['match_spatial'][j][:, 4]
                     distances2 = inputs['match_spatial'][j][:, 5]
 
                     triangulation_mask = (compute_depth > 0).float()*(compute_depth < 200).float()*(compute_angle > 0.01).float()*(distances1 < self.opt.thr_dis).float()*(distances2 < self.opt.thr_dis).float()
-    
+
                     outputs[("depth_match_spatial", scale)].append(depth_billi[triangulation_mask == 1])
                     inputs[("depth_match_spatial", scale)].append(compute_depth[triangulation_mask == 1])
 
-        
-        
-        
+
+
+
     def compute_reprojection_loss(self, pred, target):
         """Computes reprojection loss between a batch of predicted and target images
         """
@@ -732,7 +737,7 @@ class Runer:
 
         return reprojection_loss
 
-        
+
 
     def compute_losses(self, inputs, outputs):
         """Compute the reprojection and smoothness losses for a minibatch
@@ -836,16 +841,16 @@ class Runer:
                     pred = outputs[("color_spatial", frame_id, scale)]
 
                     reprojection_losses_spatial.append(outputs[("color_spatial_mask", frame_id, scale)] * self.compute_reprojection_loss(pred, target))
-                    
-                    
+
+
                 reprojection_loss_spatial = torch.cat(reprojection_losses_spatial, 1)
                 if self.opt.use_fix_mask:
                     reprojection_loss_spatial *= inputs["mask"]
-                
+
                 loss += self.opt.spatial_weight * reprojection_loss_spatial.mean()
 
 
-            
+
 
             mean_disp = disp.mean(2, True).mean(3, True)
             norm_disp = disp / (mean_disp + 1e-7)
@@ -899,11 +904,11 @@ class Runer:
                 self.num_total_steps / self.step - 1.0) * time_sofar if self.step > 0 else 0
             print_string = "epoch {:>3} | batch {:>6} | examples/s: {:5.1f}" + \
                 " | loss: {:.5f} | time elapsed: {} | time left: {}"
-            
+
             self.log_print(print_string.format(self.epoch, batch_idx, samples_per_sec, loss,
                                       sec_to_hm_str(time_sofar), sec_to_hm_str(training_time_left)))
-            
-    
+
+
     def log(self, mode, inputs, outputs, losses):
         """Write an event to the tensorboard events file
         """
@@ -957,7 +962,7 @@ class Runer:
             save_folder = os.path.join(self.log_path, "models", "weights_{}".format(self.step))
             if not os.path.exists(save_folder):
                 os.makedirs(save_folder)
-    
+
             for model_name, model in self.models.items():
                 save_path = os.path.join(save_folder, "{}.pth".format(model_name))
                 to_save = model.module.state_dict()
@@ -967,7 +972,7 @@ class Runer:
                     to_save['width'] = self.opt.width
                     to_save['use_stereo'] = self.opt.use_stereo
                 torch.save(to_save, save_path)
-    
+
             save_path = os.path.join(save_folder, "{}.pth".format("adam"))
             torch.save(self.model_optimizer.state_dict(), save_path)
 
