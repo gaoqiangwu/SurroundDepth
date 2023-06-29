@@ -31,9 +31,6 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 import cv2
 from torch.utils.data import DistributedSampler as _DistributedSampler
 import pickle
-from PIL import Image
-from torchvision import transforms
-import matplotlib.pyplot as plt
 
 
 def get_dist_info(return_gpu_per_machine=False):
@@ -181,16 +178,16 @@ class Runer:
 
         self.opt.batch_size = self.opt.batch_size // 6
 
-        # train_dataset = self.dataset(self.opt,
-        #     self.opt.height, self.opt.width,
-        #     self.opt.frame_ids, 4, is_train=True)
+        train_dataset = self.dataset(self.opt,
+            self.opt.height, self.opt.width,
+            self.opt.frame_ids, 4, is_train=True)
 
-        # train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset, shuffle=True)
-        # self.train_loader = DataLoader(
-        #     train_dataset, self.opt.batch_size, collate_fn=self.my_collate,
-        #     num_workers=self.opt.num_workers, pin_memory=True, drop_last=True, sampler=train_sampler)
+        train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset, shuffle=True)
+        self.train_loader = DataLoader(
+            train_dataset, self.opt.batch_size, collate_fn=self.my_collate,
+            num_workers=self.opt.num_workers, pin_memory=True, drop_last=True, sampler=train_sampler)
 
-        # self.num_total_steps = len(self.train_loader) * self.opt.num_epochs
+        self.num_total_steps = len(self.train_loader) * self.opt.num_epochs
 
         val_dataset = self.dataset(self.opt,
                 self.opt.height, self.opt.width,
@@ -227,9 +224,9 @@ class Runer:
         self.depth_metric_names = [
             "de/abs_rel", "de/sq_rel", "de/rms", "de/log_rms", "da/a1", "da/a2", "da/a3"]
 
-        # if self.local_rank == 0:
-        #     self.log_print("There are {:d} training items and {:d} validation items\n".format(
-        #         len(train_dataset), len(val_dataset)))
+        if self.local_rank == 0:
+            self.log_print("There are {:d} training items and {:d} validation items\n".format(
+                len(train_dataset), len(val_dataset)))
 
         self.save_opts()
 
@@ -346,15 +343,19 @@ class Runer:
         self.models["encoder"].eval()
         self.models["depth"].eval()
         ratios_median = []
-        img_index = 0
         with torch.no_grad():
             loader = self.val_loader
             for idx, data in enumerate(loader):
                 input_color = data[("color", 0, 0)].cuda()
                 gt_depths = data["depth"].cpu().numpy()
+
                 camera_ids = data["id"]
+
+
                 features = self.models["encoder"](input_color)
                 output = self.models["depth"](features)
+
+
                 pred_disps_tensor, pred_depths = disp_to_depth(output[("disp", 0)], self.opt.min_depth, self.opt.max_depth)
 
                 input_color_flip = torch.flip(input_color, [3])
@@ -383,42 +384,6 @@ class Runer:
 
                     mask = np.logical_and(gt_depth > self.opt.min_depth, gt_depth < self.opt.max_depth)
 
-                    # just for debug
-                    if 1:  # just for debug
-                        depth_color = visualize_depth(pred_depth)
-                        dep_img = Image.fromarray(depth_color)
-                        img_tensor = data[("color", 0, 0)].cpu()
-                        image_slice = img_tensor[i]
-                        img_tmp = transforms.ToPILImage()(image_slice)
-                        # 获取两个图像的宽度和高度
-                        width1, height1 = dep_img.size
-                        width2, height2 = img_tmp.size
-
-                        # 计算目标尺寸，选择较小的宽度和高度作为基准
-                        target_width = min(width1, width2)
-                        target_height = min(height1, height2)
-
-                        # 调整第一个图像的尺寸
-                        resized_dep_img = dep_img.resize((target_width, target_height))
-
-                        # 调整第二个图像的尺寸
-                        resized_img_tmp = img_tmp.resize((target_width, target_height))
-
-                        # 创建新的画布，尺寸为两个图像宽度之和，高度为两个图像中较高的一个
-                        width = resized_dep_img.width + resized_img_tmp.width
-                        height = max(resized_dep_img.height, resized_img_tmp.height)
-                        canvas = Image.new("RGB", (width, height))
-
-                        # 将第一个图像粘贴在画布左侧
-                        canvas.paste(resized_dep_img, (0, 0))
-
-                        # 将第二个图像粘贴在画布右侧
-                        canvas.paste(resized_img_tmp, (resized_dep_img.width, 0))
-
-                        # 保存合并后的图像
-                        pre_path = "/home/wugaoqiang/work/depth/SurroundDepth/data/nuscenes/pred/prd_"+str(img_index)+".jpg"
-                        img_index = img_index + 1
-                        canvas.save(pre_path)
 
                     pred_depth = pred_depth[mask]
                     gt_depth = gt_depth[mask]
