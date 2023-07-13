@@ -96,11 +96,12 @@ class NuscDataset(MonoDataset):
 
             K = np.eye(4).astype(np.float32)
             K[:3, :3] = ego_spatial['camera_intrinsic']
-            R = ego_spatial['rotation']
-            T = ego_spatial['translation']
+            # R = ego_spatial['rotation']
+            # T = ego_spatial['translation']
             inputs[('K_ori', 0)].append(K)
-            inputs['R_ori'] = R
-            inputs['T_ori'] = T
+            pose_0_spatial = Quaternion(ego_spatial['rotation']).transformation_matrix
+            pose_0_spatial[:3, 3] = np.array(ego_spatial['translation'])
+            inputs["pose_spatial"].append(pose_0_spatial.astype(np.float32))
             if self.is_train:
 
                 if self.opt.use_sfm_spatial:
