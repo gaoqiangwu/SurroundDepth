@@ -376,20 +376,37 @@ class Runer:
 
                     pred_disp = pred_disps[i]
                     pred_depth = 1 / pred_disp
-                    pred_depth = cv2.resize(pred_depth, (gt_width, gt_height))
 
-                    if self.opt.focal:
-                        pred_depth = pred_depth * data[("K", 0, 0)][i, 0, 0].item() / self.opt.focal_scale
-
-                    mask = np.logical_and(gt_depth > self.opt.min_depth, gt_depth < self.opt.max_depth)
-
-                    # just for debug
+                     # just for debug
                     if 1:  # just for debug
-                        depth_color = visualize_depth(pred_depth)
-                        dep_img = Image.fromarray(depth_color)
+                        # TODO: wgq
+                        inv_k = data[("inv_K", 0, 0)][i]
+                        inv_k = inv_k[:3, :3].numpy()
+
+                        dph_height = pred_depth.shape[0]
+                        dph_width = pred_depth.shape[1]
+
+                        meshgrid = np.meshgrid(range(dph_width), range(dph_height), indexing='xy')
+                        id_coords = np.stack(meshgrid, axis=0).astype(np.float32)
+                        ones = np.ones(dph_height * dph_width).reshape(1, -1)
+                        pix_coords = id_coords.reshape(2, -1)
+                        pix_coords = np.vstack((pix_coords, ones))
+                        # depth --> camera points
+                        cam_points = np.matmul(inv_k, pix_coords)
+                        cam_points = pred_depth.reshape(1, -1) * cam_points
+                        # camera points --> vcs points
+
                         img_tensor = data[("color", 0, 0)].cpu()
                         image_slice = img_tensor[i]
                         img_tmp = transforms.ToPILImage()(image_slice)
+                        img_array = np.array(img_tmp)
+                        rgb_matrix = img_array[:, :, :3].reshape(-1, 3)
+                        rgb_matrix = rgb_matrix.T
+                        cam_rgb_point = np.vstack((cam_points, rgb_matrix))
+
+                        depth_color = visualize_depth(pred_depth)
+                        dep_img = Image.fromarray(depth_color)
+
                         # 获取两个图像的宽度和高度
                         width1, height1 = dep_img.size
                         width2, height2 = img_tmp.size
@@ -416,9 +433,16 @@ class Runer:
                         canvas.paste(resized_img_tmp, (resized_dep_img.width, 0))
 
                         # 保存合并后的图像
-                        pre_path = "/home/wugaoqiang/work/depth/SurroundDepth/data/nuscenes/pred/prd_"+str(img_index)+".jpg"
-                        img_index = img_index + 1
-                        canvas.save(pre_path)
+                        # pre_path = "/home/wugaoqiang/work/depth/SurroundDepth/data/nuscenes/pred/prd_"+str(img_index)+".jpg"
+                        # img_index = img_index + 1
+                        # canvas.save(pre_path)
+
+                    pred_depth = cv2.resize(pred_depth, (gt_width, gt_height))
+
+                    if self.opt.focal:
+                        pred_depth = pred_depth * data[("K", 0, 0)][i, 0, 0].item() / self.opt.focal_scale
+
+                    mask = np.logical_and(gt_depth > self.opt.min_depth, gt_depth < self.opt.max_depth)
 
                     pred_depth = pred_depth[mask]
                     gt_depth = gt_depth[mask]
