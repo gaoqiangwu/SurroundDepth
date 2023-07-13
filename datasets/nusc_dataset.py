@@ -99,8 +99,8 @@ class NuscDataset(MonoDataset):
             R = ego_spatial['rotation']
             T = ego_spatial['translation']
             inputs[('K_ori', 0)].append(K)
-            inputs[('R_ori', 0)].append(R)
-            inputs[('T_ori', 0)].append(T)
+            inputs['R_ori'] = R
+            inputs['T_ori'] = T
             if self.is_train:
 
                 if self.opt.use_sfm_spatial:

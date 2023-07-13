@@ -236,7 +236,7 @@ class Runer:
     def my_collate(self,batch):
         batch_new = {}
         keys_list = list(batch[0].keys())
-        special_key_list = ['id', 'match_spatial']
+        special_key_list = ['id', 'match_spatial', 'R_ori', 'T_ori']
 
         for key in keys_list:
             if key not in special_key_list:
