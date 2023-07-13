@@ -101,7 +101,7 @@ class NuscDataset(MonoDataset):
             inputs[('K_ori', 0)].append(K)
             pose_0_spatial = Quaternion(ego_spatial['rotation']).transformation_matrix
             pose_0_spatial[:3, 3] = np.array(ego_spatial['translation'])
-            inputs["pose_spatial"].append(pose_0_spatial.astype(np.float32))
+            inputs["pose_matrix"] = pose_0_spatial.astype(np.float32)
             if self.is_train:
 
                 if self.opt.use_sfm_spatial:

@@ -236,7 +236,7 @@ class Runer:
     def my_collate(self,batch):
         batch_new = {}
         keys_list = list(batch[0].keys())
-        special_key_list = ['id', 'match_spatial', 'pose_spatial']
+        special_key_list = ['id', 'match_spatial', 'pose_matrix']
 
         for key in keys_list:
             if key not in special_key_list:
@@ -346,10 +346,11 @@ class Runer:
         self.models["encoder"].eval()
         self.models["depth"].eval()
         ratios_median = []
-        img_index = 0
+        data_index = 0
         with torch.no_grad():
             loader = self.val_loader
             for idx, data in enumerate(loader):
+                data_index = data_index + 1
                 input_color = data[("color", 0, 0)].cuda()
                 gt_depths = data["depth"].cpu().numpy()
                 camera_ids = data["id"]
@@ -396,7 +397,7 @@ class Runer:
                         cam_points = pred_depth.reshape(1, -1) * cam_points
                         # camera points --> vcs points
                         cam_points = np.vstack((cam_points, ones))
-                        vcs_points = np.matmul(data['pose_spatial'], cam_points)
+                        vcs_points = np.matmul(data['pose_matrix'], cam_points)
                         vcs_points = vcs_points[:3, :]
 
                         img_tensor = data[("color", 0, 0)].cpu()
@@ -406,6 +407,8 @@ class Runer:
                         rgb_matrix = img_array[:, :, :3].reshape(-1, 3)
                         rgb_matrix = rgb_matrix.T
                         vcs_rgb_point = np.vstack((vcs_points, rgb_matrix))
+                        npy_path = "/home/wgq/work/depth/SurroundDepth/data/nuscenes/pred_points/prd_points_"+str(data_index)+"_"+str(i)+".npy"
+                        np.save(npy_path, vcs_rgb_point)
 
                         depth_color = visualize_depth(pred_depth)
                         dep_img = Image.fromarray(depth_color)
@@ -436,9 +439,8 @@ class Runer:
                         canvas.paste(resized_img_tmp, (resized_dep_img.width, 0))
 
                         # 保存合并后的图像
-                        # pre_path = "/home/wugaoqiang/work/depth/SurroundDepth/data/nuscenes/pred/prd_"+str(img_index)+".jpg"
-                        # img_index = img_index + 1
-                        # canvas.save(pre_path)
+                        pre_path = "/home/wgq/work/depth/SurroundDepth/data/nuscenes/pred_img/prd_img_"+str(data_index)+"_"+str(i)+".jpg"
+                        canvas.save(pre_path)
 
                     pred_depth = cv2.resize(pred_depth, (gt_width, gt_height))
 
