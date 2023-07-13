@@ -395,6 +395,9 @@ class Runer:
                         cam_points = np.matmul(inv_k, pix_coords)
                         cam_points = pred_depth.reshape(1, -1) * cam_points
                         # camera points --> vcs points
+                        cam_points = np.vstack((cam_points, ones))
+                        vcs_points = np.matmul(data['pose_spatial'], cam_points)
+                        vcs_points = vcs_points[:3, :]
 
                         img_tensor = data[("color", 0, 0)].cpu()
                         image_slice = img_tensor[i]
@@ -402,7 +405,7 @@ class Runer:
                         img_array = np.array(img_tmp)
                         rgb_matrix = img_array[:, :, :3].reshape(-1, 3)
                         rgb_matrix = rgb_matrix.T
-                        cam_rgb_point = np.vstack((cam_points, rgb_matrix))
+                        vcs_rgb_point = np.vstack((vcs_points, rgb_matrix))
 
                         depth_color = visualize_depth(pred_depth)
                         dep_img = Image.fromarray(depth_color)
