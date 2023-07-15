@@ -398,21 +398,21 @@ class Runer:
                         # camera points --> vcs points
                         cam_points = np.vstack((cam_points, ones))
                         vcs_points = np.matmul(data['pose_matrix'], cam_points)
+                        print("####### camera id: " + camera_id)
+                        print(data['pose_matrix'])
                         vcs_points = vcs_points[:3, :]
 
                         img_tensor = data[("color", 0, 0)].cpu()
                         image_slice = img_tensor[i]
-                        img_tmp = transforms.ToPILImage()(image_slice)
-                        img_array = np.array(img_tmp)
-                        rgb_matrix = img_array[:, :, :3].reshape(-1, 3)
-                        rgb_matrix = rgb_matrix.T
-                        vcs_rgb_point = np.vstack((vcs_points, rgb_matrix))
-                        npy_path = "/home/wgq/work/depth/SurroundDepth/data/nuscenes/pred_points/prd_points_"+str(data_index)+"_"+str(i)+".npy"
+                        img_array = image_slice.numpy().reshape(3, -1)
+                        vcs_rgb_point = np.vstack((vcs_points, img_array))
+                        npy_path = "/home/wugaoqiang/work/depth/SurroundDepth/data/nuscenes/pred_points/prd_points_"+str(data_index)+"_"+str(i)+".npy"
                         np.save(npy_path, vcs_rgb_point)
 
                         depth_color = visualize_depth(pred_depth)
                         dep_img = Image.fromarray(depth_color)
 
+                        img_tmp = transforms.ToPILImage()(image_slice)
                         # 获取两个图像的宽度和高度
                         width1, height1 = dep_img.size
                         width2, height2 = img_tmp.size
@@ -439,7 +439,7 @@ class Runer:
                         canvas.paste(resized_img_tmp, (resized_dep_img.width, 0))
 
                         # 保存合并后的图像
-                        pre_path = "/home/wgq/work/depth/SurroundDepth/data/nuscenes/pred_img/prd_img_"+str(data_index)+"_"+str(i)+".jpg"
+                        pre_path = "/home/wugaoqiang/work/depth/SurroundDepth/data/nuscenes/pred_img/prd_img_"+str(data_index)+"_"+str(i)+".jpg"
                         canvas.save(pre_path)
 
                     pred_depth = cv2.resize(pred_depth, (gt_width, gt_height))
