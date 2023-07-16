@@ -406,7 +406,7 @@ class Runer:
                         image_slice = img_tensor[i]
                         img_array = image_slice.numpy().reshape(3, -1)
                         vcs_rgb_point = np.vstack((vcs_points, img_array))
-                        npy_path = "/home/wugaoqiang/work/depth/SurroundDepth/data/nuscenes/pred_points/prd_points_"+str(data_index)+"_"+str(i)+".npy"
+                        npy_path = "/home/wgq/work/depth/SurroundDepth/data/nuscenes/pred_points/prd_points_"+str(data_index)+"_"+str(i)+".npy"
                         np.save(npy_path, vcs_rgb_point)
 
                         depth_color = visualize_depth(pred_depth)
@@ -439,7 +439,7 @@ class Runer:
                         canvas.paste(resized_img_tmp, (resized_dep_img.width, 0))
 
                         # 保存合并后的图像
-                        pre_path = "/home/wugaoqiang/work/depth/SurroundDepth/data/nuscenes/pred_img/prd_img_"+str(data_index)+"_"+str(i)+".jpg"
+                        pre_path = "/home/wgq/work/depth/SurroundDepth/data/nuscenes/pred_img/prd_img_"+str(data_index)+"_"+str(i)+".jpg"
                         canvas.save(pre_path)
 
                     pred_depth = cv2.resize(pred_depth, (gt_width, gt_height))

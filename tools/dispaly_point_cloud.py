@@ -1,11 +1,4 @@
-'''
-Author: wugaoqiang wugaoqiang@lixiang.com
-Date: 2023-07-14 20:02:30
-LastEditors: wugaoqiang wugaoqiang@lixiang.com
-LastEditTime: 2023-07-16 19:54:35
-FilePath: /SurroundDepth/tools/dispaly_point_cloud.py
-Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
-'''
+
 import open3d as o3d
 import numpy as np
 import os
@@ -18,7 +11,7 @@ import cv2
 import argparse
 
 
-def save_view_point_clound(pc_path_list, json_path):
+def save_view_point_cloud(pc_path_list, json_path):
 # Load xyzrgb numpy data
     for pc_path_list in data_frame_files:
         point_post = np.array([])
@@ -138,8 +131,8 @@ def data_files_preprocess(point_files: str):
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--pc_folder', type=str, default='/home/wugaoqiang/work/depth/SurroundDepth/data/nuscenes/pred_points')
-parser.add_argument('--img_folder', type=str, default='/home/wugaoqiang/work/depth/SurroundDepth/data/nuscenes/pred_img')
+parser.add_argument('--pc_folder', type=str, default='/home/wgq/work/depth/SurroundDepth/data/nuscenes/pred_points')
+parser.add_argument('--img_folder', type=str, default='/home/wgq/work/depth/SurroundDepth/data/nuscenes/pred_img')
 parser.add_argument('--enable_img_display', type=bool, default=False)
 
 if __name__ =="__main__":
