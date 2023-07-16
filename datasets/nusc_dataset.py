@@ -66,6 +66,7 @@ class NuscDataset(MonoDataset):
 
 
         inputs['width_ori'], inputs['height_ori'], inputs['id'] = [], [], []
+        inputs["pose_matrix"] = []
 
         rec = self.nusc.get('sample', index_temporal)
 
@@ -100,8 +101,14 @@ class NuscDataset(MonoDataset):
             # T = ego_spatial['translation']
             inputs[('K_ori', 0)].append(K)
             pose_0_spatial = Quaternion(ego_spatial['rotation']).transformation_matrix
+            # print('########### index_spatial: %d' % (index_spatial))
+            # print(pose_0_spatial)
+            # print("*****0:")
             pose_0_spatial[:3, 3] = np.array(ego_spatial['translation'])
-            inputs["pose_matrix"] = pose_0_spatial.astype(np.float32)
+            # print(pose_0_spatial)
+            # print("*****1:")
+            inputs["pose_matrix"].append(pose_0_spatial.astype(np.float32))
+            # print(inputs["pose_matrix"])
             if self.is_train:
 
                 if self.opt.use_sfm_spatial:

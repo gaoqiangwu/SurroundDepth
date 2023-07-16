@@ -397,9 +397,9 @@ class Runer:
                         cam_points = pred_depth.reshape(1, -1) * cam_points
                         # camera points --> vcs points
                         cam_points = np.vstack((cam_points, ones))
-                        vcs_points = np.matmul(data['pose_matrix'], cam_points)
-                        print("####### camera id: " + camera_id)
-                        print(data['pose_matrix'])
+                        vcs_points = np.matmul(data['pose_matrix'][i], cam_points)
+                        # print("####### camera id: " + camera_id)
+                        # print(data['pose_matrix'])
                         vcs_points = vcs_points[:3, :]
 
                         img_tensor = data[("color", 0, 0)].cpu()
