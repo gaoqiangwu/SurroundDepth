@@ -2,7 +2,7 @@
 Author: wugaoqiang wugaoqiang@lixiang.com
 Date: 2023-07-14 20:02:30
 LastEditors: wugaoqiang wugaoqiang@lixiang.com
-LastEditTime: 2023-07-14 20:05:16
+LastEditTime: 2023-07-16 19:54:35
 FilePath: /SurroundDepth/tools/dispaly_point_cloud.py
 Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 '''
@@ -19,45 +19,53 @@ import argparse
 
 
 def save_view_point_clound(pc_path_list, json_path):
-    # Load xyzrgb numpy data
-    point_post = np.array([])
-    point_colors = np.array([])
-    for camera_id, pc_path in pc_path_list[1].items():
-        #for key,value in pc_path
-        pc_data = np.load(pc_path)
-        vis = o3d.visualization.Visualizer()
-        vis.create_window(window_name='pcd', width=2000, height=1500)
+# Load xyzrgb numpy data
+    for pc_path_list in data_frame_files:
+        point_post = np.array([])
+        point_colors = np.array([])
+        for camera_id, pc_path in pc_path_list[1].items():
+            #for key,value in pc_path
+            pc_data = np.load(pc_path)
+            vis = o3d.visualization.Visualizer()
+            vis.create_window(window_name='pcd', width=2000, height=1500)
 
-        # Transpose the matrix to match the Open3D convention
-        data = np.transpose(pc_data)
-        # Set point cloud properties
-        print(data[:, :3][0])
-        if point_post.size == 0 or point_colors.size == 0:
-            point_post = data[:, :3]
-            point_colors = data[:, 3:]
-        else:
-            point_post = np.vstack((point_post, data[:, :3]))
-            point_colors = np.vstack((point_colors, data[:, 3:]))
-    # Create a point cloud object
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(point_post)  # Extract xyz coordinates
-    pcd.colors = o3d.utility.Vector3dVector(
-        point_colors)  # Extract RGB color values and normalize to range [0,1]
+            # Transpose the matrix to match the Open3D convention
+            data = np.transpose(pc_data)
+            # remove point.z > 2
+            z_mask = data[:, 2] < 2.0
+            data = data[z_mask, :]
+            # z_mask = data[:, 2] > 0.5
+            # data = data[z_mask, :]
+            # Set point cloud properties
+            # print(data[:, :3][0])
+            if point_post.size == 0 or point_colors.size == 0:
+                point_post = data[:, :3]
+                point_colors = data[:, 3:]
+            else:
+                point_post = np.vstack((point_post, data[:, :3]))
+                point_colors = np.vstack((point_colors, data[:, 3:]))
+        # Create a point cloud object
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(point_post)  # Extract xyz coordinates
+        pcd.colors = o3d.utility.Vector3dVector(
+            point_colors)  # Extract RGB color values and normalize to range [0,1]
 
-    # Visualize the point cloud
-    #o3d.visualization.draw_geometries([pcd])
+        # Visualize the point cloud
+        #o3d.visualization.draw_geometries([pcd])
 
-    axis_pcd = o3d.geometry.TriangleMesh.create_coordinate_frame(size=2, origin=[0, 0, 0])
-    vis.add_geometry(pcd)
-    vis.add_geometry(axis_pcd)
-    vis.run()  # user changes the view and press "q" to terminate
+        axis_pcd = o3d.geometry.TriangleMesh.create_coordinate_frame(size=2, origin=[0, 0, 0])
+        vis.add_geometry(pcd)
+        vis.add_geometry(axis_pcd)
+        vis.run()  # user changes the view and press "q" to terminate
 
-    param = vis.get_view_control().convert_to_pinhole_camera_parameters()
-    o3d.io.write_pinhole_camera_parameters(json_path, param)
+        param = vis.get_view_control().convert_to_pinhole_camera_parameters()
+        o3d.io.write_pinhole_camera_parameters(json_path, param)
 
-    vis.destroy_window()
+        vis.destroy_window()
+        break
 
-def vis_autolabel_multi(label_path, json_path, gt_path=None, cut_range=None):
+
+def vis_point_cloud_multi(data_frame_files: dict, json_path: str, img_path=None, cut_range=None):
     vis = o3d.visualization.Visualizer()
     vis.create_window(window_name='pcd', width=2000, height=1500)
     opt = vis.get_render_option()
@@ -68,51 +76,34 @@ def vis_autolabel_multi(label_path, json_path, gt_path=None, cut_range=None):
     ctr.convert_from_pinhole_camera_parameters(param)
     to_reset = True
 
-    origin = (0, -24, -1)
-    voxel_size = 0.3
+    for frame_data_paths in data_frame_files:
+        point_post = np.array([])
+        point_colors = np.array([])
+        for camera_id, pc_path in frame_data_paths[1].items():
+            # for key,value in pc_path
+            pc_data = np.load(pc_path)
 
-    pred_files = glob(label_path + "/*.labels")
-    gt_files = glob(gt_path + "/*.npz")
-    # gt_files = [os.path.join(gt_occ_path, os.path.basename(p)) for p in gt_occ_list]
+            # Transpose the matrix to match the Open3D convention
+            data = np.transpose(pc_data)
+            z_mask = data[:, 2] < 2.0
+            data = data[z_mask, :]
+            # Set point cloud properties
+            if point_post.size == 0 or point_colors.size == 0:
+                point_post = data[:, :3]
+                point_colors = data[:, 3:]
+            else:
+                point_post = np.vstack((point_post, data[:, :3]))
+                point_colors = np.vstack((point_colors, data[:, 3:]))
+        # Create a point cloud object
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(point_post)  # Extract xyz coordinates
+        pcd.colors = o3d.utility.Vector3dVector(
+            point_colors)  # Extract RGB color values and normalize to range [0,1]
 
-    pred_dic = dict()
-    gt_dic = dict()
-    for path in pred_files:
-        filename = os.path.basename(path)
-        # TODO(wgq)
-        start_index = filename.find('_') + 1
-        timestamp = filename[start_index:start_index + 13]
-        pred_dic[timestamp] = path
-
-    for path in gt_files:
-        filename = os.path.basename(path)
-        start_index = filename.rfind('_') + 1
-        end_index = filename.rfind('.')
-        timestamp = filename[start_index:end_index]
-        gt_dic[timestamp] = path
-
-    gt_list = list()
-    pred_list = list()
-    pred_dic_sort = sorted(pred_dic.items(), key=lambda x: int(x[0]))
-    for pred_pair in pred_dic_sort:
-        for g_key, g_value in gt_dic.items():
-            p_key_i = int(pred_pair[0])
-            g_key_i = int(g_key)
-            if (p_key_i > g_key_i - 10) and (p_key_i < g_key_i + 10):
-                gt_list.append(g_value)
-                pred_list.append(pred_pair[1])
-
-    for p, g in zip(pred_list, gt_list):
-        vg = get_geo_autolabel(p, (12, 160, 264), origin, voxel_size, cut_range=cut_range) #
         vis.clear_geometries()
-
-        vis.add_geometry(vg)
-        axis = o3d.geometry.TriangleMesh().create_coordinate_frame(size=2, origin=np.array([0, 0., 0]))
-        vis.add_geometry(axis)
-
-        vg_gt = get_gt_autolabel_mask(g, (334, 160, 16), origin, voxel_size, cut_range) #
-        vis.add_geometry(vg_gt)
-
+        axis_pcd = o3d.geometry.TriangleMesh.create_coordinate_frame(size=2, origin=[0, 0, 0])
+        vis.add_geometry(pcd)
+        vis.add_geometry(axis_pcd)
         # cam3_img, pre = add_single_img(gt_path, clip_name, token,mark)
         # if len(pre)!= 0:
         #     mark.append(pre)
@@ -162,8 +153,7 @@ if __name__ =="__main__":
     data_frame_files = data_files_preprocess(point_files)
 
     if len(data_frame_files) > 0:
-        set_debug_view_data_path = data_frame_files[-1]
         json_path = './autolabel_view3.json'
-        # save_view_point_pred_occ(set_debug_view_data_path, json_path, None)
-        save_view_point_clound(set_debug_view_data_path, json_path)
+        save_view_point_cloud(data_frame_files, json_path)
         # vis_autolabel_multi(pred_path, json_path, gt_path, cut_range)
+        vis_point_cloud_multi(data_frame_files, json_path)  #, gt_path, cut_range
